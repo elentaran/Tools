@@ -64,7 +64,7 @@ end
 
 def func()
     while (!$paramValues.empty?) do
-        param = $paramValues.take(1)
+        param = $paramValues.first
         $paramValues = $paramValues.drop(1)
         execCmd(param)
     end
