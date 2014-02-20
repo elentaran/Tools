@@ -1,17 +1,19 @@
 #!/usr/bin/ruby
 
-$nameProg = "./latinSquare"
-$keyWord = "Score:"
+$nameProg = "./a.out"
+$keyWord = ["Score"]
+$nbSignificantNumbers = 1
+$format = "%." + $nbSignificantNumbers.to_s + "f"
 
-usage = "usage: computeStats.rb nbrun[=100] [nameProg] [keyWord]"
+$usage = "usage: computeStats.rb nbrun[=100] nameProg[=./a.out] keyWords[=Score]\nexample: computeStats.rb 50 ./myProg \"Score Score2\""
 
 if (ARGV.length > 0)
-    nbrun = ARGV[0].to_i
-    if (nbrun == 0)
-        puts usage
+    $nbrun = ARGV[0].to_i
+    if ($nbrun == 0)
+        exit
     end
 else
-    nbrun = 100
+    $nbrun = 100
 end
 
 if (ARGV.length > 1)
@@ -19,24 +21,32 @@ if (ARGV.length > 1)
 end
 
 if (ARGV.length > 2)
-    $keyWord = ARGV[2].to_s
+    $keyWord = ARGV[2].to_s.split
 end
 
 if (ARGV.length > 3)
-    puts usage
+    puts $usage
 end
 
 def launchProg()
     cmd = $nameProg
     value = `#{cmd}`
     if (!$?.success?)
+        STDERR.puts ""
+        STDERR.puts $usage
         exit
     end
-    res = value.scan(/#{$keyWord} (\d*)/)   # res is a list of all the occurence of keyword
-    if (res.length == 0)
-        puts ""
-        puts "keyword \"#{$keyWord}\" not found during the execution of the program"
-        exit
+    res = {}
+    $keyWord.each do |keyword|
+        tempRes = value.scan(/#{keyword}.* (\d*)/)   # res is a list of all the occurence of keyword
+                                                     # the value is the last number on a line where keyword is found
+        if (tempRes.length == 0)
+            STDERR.puts ""
+            STDERR.puts "keyword \"#{keyword}\" not found during the execution of the program"
+            STDERR.puts $usage
+            exit
+        end
+        res.store(keyword,tempRes)   
     end
     return res
 end
@@ -58,29 +68,62 @@ end
 
 
 def printRes(listRes,listTime)
-    for i in 0...listRes.length
-        puts meanArray(listRes[i]).to_s + " +- " + ciArray(listRes[i]).to_s + " (sd: " + sdArray(listRes[i]).to_s + ") (max: " + listRes[i].max.to_s + ")"
+    l1 = "#"
+    l2 = "#"
+    listRes.keys.each do |key|
+        l1 += key.to_s + "\t\t"
+        l2 += "mean\t" + "ci\t"
     end
-    puts meanArray(listTime).to_s + "s"
+    l1 += "Time"
+    puts l1
+    puts l2
+    nbLines = listRes.values.map{|x| x.length}.max
+    for i in 0...nbLines do
+        s = ""
+        listRes.keys.each do |key|
+            if (i < listRes[key].length)
+                s += $format % meanArray(listRes[key][i]).to_s + "\t" + $format % ciArray(listRes[key][i]).to_s + "\t" #+ sdArray(listRes[key][i]).to_s + "\t" + listRes[key][i].max.to_s + "\t"
+            else
+                s += $format % meanArray(listRes[key][-1]).to_s + "\t" + $format % ciArray(listRes[key][-1]).to_s + "\t" # + sdArray(listRes[key][-1]).to_s + "\t" + listRes[key][-1].max.to_s + "\t"
+            end
+        end
+        s += $format % meanArray(listTime).to_s 
+        puts s
+    end
+    #puts meanArray(listTime).to_s + "s"
 end
 
 begin
 
-    listRes = []
+    #init
+    listRes = {}
+    $keyWord.each do |key|
+        listRes.store(key,[])
+    end
     listTime = []
-    for i in 1..nbrun
-        STDERR.printf("\r%i / %i",i,nbrun )
+
+    for i in 1..$nbrun
+        STDERR.printf("\r%i / %i",i,$nbrun )
         STDERR.flush
         startt = Time.now
         res = launchProg()
-        if (res.length>listRes.length)
-            for j in listRes.length...res.length
-                listRes[j]=[]
+
+        # if a new results has more values for a certain key, add new rows in listRes
+        res.keys.each do |resKey|
+            if (res[resKey].length>listRes[resKey].length)
+                for j in listRes[resKey].length...res[resKey].length
+                    listRes[resKey].push([])
+                end
             end
         end
-        for j in 0...res.length
-            listRes[j].push(res[j][0].to_i)
+
+        # add the results to listRes
+        listRes.keys.each do |resKey|
+            for j in 0...res[resKey].length
+                listRes[resKey][j].push(res[resKey][j][0].to_i)
+            end
         end
+
         endt = Time.now
         listTime.push(endt-startt)
     end
