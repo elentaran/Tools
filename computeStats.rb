@@ -70,7 +70,7 @@ end
 def printRes(listRes,listTime)
     l1 = "#"
     l2 = "#"
-    listRes.keys.each do |key|
+    $keyWord.each do |key|
         l1 += key.to_s + "\t\t"
         l2 += "mean\t" + "ci\t"
     end
@@ -80,7 +80,7 @@ def printRes(listRes,listTime)
     nbLines = listRes.values.map{|x| x.length}.max
     for i in 0...nbLines do
         s = ""
-        listRes.keys.each do |key|
+        $keyWord.each do |key|
             if (i < listRes[key].length)
                 s += $format % meanArray(listRes[key][i]).to_s + "\t" + $format % ciArray(listRes[key][i]).to_s + "\t" #+ sdArray(listRes[key][i]).to_s + "\t" + listRes[key][i].max.to_s + "\t"
             else
