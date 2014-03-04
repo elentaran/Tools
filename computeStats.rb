@@ -1,49 +1,62 @@
 #!/usr/bin/ruby
+require 'optparse'
 
-$nameProg = "./a.out"
-$keyWord = ["Score"]
-$nbSignificantNumbers = 1
-$format = "%." + $nbSignificantNumbers.to_s + "f"
+$options = {
+    :nameProg => "./a.out",
+    :nbrun => 100,
+    :keyWord => ["Score","Playout"],
+    :nbSignificantNumbers => 1
+}
+$options[:format] = "%." + $options[:nbSignificantNumbers].to_s + "f"
 
-$usage = "usage: computeStats.rb nbrun[=100] nameProg[=./a.out] keyWords[=Score]\nexample: computeStats.rb 50 ./myProg \"Score Score2\""
+optparse = OptionParser.new do |opt|
+    opt.banner = "usage: ./computeStats.rb [options]"
 
-if (ARGV.length > 0)
-    $nbrun = ARGV[0].to_i
-    if ($nbrun == 0)
+    opt.on( '-p', '--prog NP', 'executable to run') do |name|
+        $options[:nameProg] = name
+    end
+
+    opt.on('-n', '--nbrun NB',Integer, 'nbrun') do |nb|
+        $options[:nbrun] = nb
+    end
+
+    opt.on('-k', '--keyword key1,key2,key3', Array, 'list of keywords to find in the output') do |l|
+        $options[:keyWord] = l
+    end
+
+    opt.on('-sn', '--signum SN',Integer, 'number of significant numbers in the result') do |sn|
+        $options[:nbSignificantNumbers] = sn 
+        $options[:format] = "%." + $options[:nbSignificantNumbers].to_s + "f"
+    end
+
+    opt.on( '-h', '--help', 'Display this screen' ) do
+        puts opt
         exit
     end
-else
-    $nbrun = 100
 end
 
-if (ARGV.length > 1)
-    $nameProg = ARGV[1].to_s
-end
+optparse.parse!
 
-if (ARGV.length > 2)
-    $keyWord = ARGV[2].to_s.split
-end
-
-if (ARGV.length > 3)
-    puts $usage
+if (!ARGV.empty?)
+    STDERR.puts "argument " + ARGV.inspect + " is not recognized"
+    exit
 end
 
 def launchProg()
-    cmd = $nameProg
+    cmd = $options[:nameProg]
     value = `#{cmd}`
     if (!$?.success?)
         STDERR.puts ""
-        STDERR.puts $usage
+        STDERR.puts "program \"" + cmd + "\" not found"
         exit
     end
     res = {}
-    $keyWord.each do |keyword|
+    $options[:keyWord].each do |keyword|
         tempRes = value.scan(/#{keyword}.* (\d*)/)   # res is a list of all the occurence of keyword
                                                      # the value is the last number on a line where keyword is found
         if (tempRes.length == 0)
             STDERR.puts ""
             STDERR.puts "keyword \"#{keyword}\" not found during the execution of the program"
-            STDERR.puts $usage
             exit
         end
         res.store(keyword,tempRes)   
@@ -70,7 +83,7 @@ end
 def printRes(listRes,listTime)
     l1 = "#"
     l2 = "#"
-    $keyWord.each do |key|
+    $options[:keyWord].each do |key|
         l1 += key.to_s + "\t\t"
         l2 += "mean\t" + "ci\t"
     end
@@ -80,14 +93,14 @@ def printRes(listRes,listTime)
     nbLines = listRes.values.map{|x| x.length}.max
     for i in 0...nbLines do
         s = ""
-        $keyWord.each do |key|
+        $options[:keyWord].each do |key|
             if (i < listRes[key].length)
-                s += $format % meanArray(listRes[key][i]).to_s + "\t" + $format % ciArray(listRes[key][i]).to_s + "\t" #+ sdArray(listRes[key][i]).to_s + "\t" + listRes[key][i].max.to_s + "\t"
+                s += $options[:format] % meanArray(listRes[key][i]).to_s + "\t" + $options[:format] % ciArray(listRes[key][i]).to_s + "\t" #+ sdArray(listRes[key][i]).to_s + "\t" + listRes[key][i].max.to_s + "\t"
             else
-                s += $format % meanArray(listRes[key][-1]).to_s + "\t" + $format % ciArray(listRes[key][-1]).to_s + "\t" # + sdArray(listRes[key][-1]).to_s + "\t" + listRes[key][-1].max.to_s + "\t"
+                s += $options[:format] % meanArray(listRes[key][-1]).to_s + "\t" + $options[:format] % ciArray(listRes[key][-1]).to_s + "\t" # + sdArray(listRes[key][-1]).to_s + "\t" + listRes[key][-1].max.to_s + "\t"
             end
         end
-        s += $format % meanArray(listTime).to_s 
+        s += $options[:format] % meanArray(listTime).to_s 
         puts s
     end
     #puts meanArray(listTime).to_s + "s"
@@ -97,13 +110,13 @@ begin
 
     #init
     listRes = {}
-    $keyWord.each do |key|
+    $options[:keyWord].each do |key|
         listRes.store(key,[])
     end
     listTime = []
 
-    for i in 1..$nbrun
-        STDERR.printf("\r%i / %i",i,$nbrun )
+    for i in 1..$options[:nbrun]
+        STDERR.printf("\r%i / %i",i,$options[:nbrun] )
         STDERR.flush
         startt = Time.now
         res = launchProg()
